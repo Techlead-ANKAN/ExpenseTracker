@@ -19,6 +19,23 @@ CREATE TABLE users (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 2.1 CREATE BUDGETS TABLE
+CREATE TABLE budgets (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  category TEXT NOT NULL CHECK (category IN ('Food', 'Travel', 'Rent', 'Shopping', 'Entertainment', 'Healthcare', 'Education', 'Utilities', 'Other')),
+  monthly_limit NUMERIC(12, 2) NOT NULL CHECK (monthly_limit > 0),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, category)
+);
+
+-- Add comments to budgets table
+COMMENT ON TABLE budgets IS 'Stores monthly budget limits per category for each user';
+COMMENT ON COLUMN budgets.user_id IS 'Foreign key reference to users table';
+COMMENT ON COLUMN budgets.monthly_limit IS 'Maximum spending limit for this category per month';
+COMMENT ON COLUMN budgets.category IS 'Expense category - must match expenses table categories';
+
 -- Add comment to users table
 COMMENT ON TABLE users IS 'Stores user account information';
 COMMENT ON COLUMN users.email IS 'Unique email address for authentication';
@@ -59,6 +76,11 @@ CREATE INDEX idx_expenses_user_date ON expenses(user_id, date DESC);
 -- Index on email for login queries
 CREATE INDEX idx_users_email ON users(email);
 
+-- Index on budgets for user queries
+CREATE INDEX idx_budgets_user_id ON budgets(user_id);
+CREATE INDEX idx_budgets_category ON budgets(category);
+CREATE INDEX idx_budgets_user_category ON budgets(user_id, category);
+
 -- 5. CREATE FUNCTION FOR UPDATED_AT TIMESTAMP
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -79,9 +101,15 @@ CREATE TRIGGER update_expenses_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_budgets_updated_at
+  BEFORE UPDATE ON budgets
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
 -- 7. ENABLE ROW LEVEL SECURITY (RLS)
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE budgets ENABLE ROW LEVEL SECURITY;
 
 -- 8. CREATE RLS POLICIES FOR USERS TABLE
 
@@ -139,6 +167,32 @@ CREATE POLICY "Users can delete own expenses"
   ON expenses
   FOR DELETE
   USING (true);  -- Allow delete (application filters by user_id)
+
+-- 9.1. CREATE RLS POLICIES FOR BUDGETS TABLE
+
+-- Policy: Users can view only their own budgets
+CREATE POLICY "Users can view own budgets"
+  ON budgets
+  FOR SELECT
+  USING (true);
+
+-- Policy: Users can insert their own budgets
+CREATE POLICY "Users can insert own budgets"
+  ON budgets
+  FOR INSERT
+  WITH CHECK (true);
+
+-- Policy: Users can update their own budgets
+CREATE POLICY "Users can update own budgets"
+  ON budgets
+  FOR UPDATE
+  USING (true);
+
+-- Policy: Users can delete their own budgets
+CREATE POLICY "Users can delete own budgets"
+  ON budgets
+  FOR DELETE
+  USING (true);
 
 -- 10. CREATE HELPFUL VIEWS
 
