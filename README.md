@@ -1,4 +1,4 @@
-# 💰 Expense Tracker
+# 💰 ExpenseTracker
 
 A clean, minimal, and professional expense tracking application built with React and Supabase.
 
